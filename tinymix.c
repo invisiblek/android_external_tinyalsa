@@ -180,8 +180,10 @@ static void tinymix_set_value(struct mixer *mixer, const char *control,
 {
     struct mixer_ctl *ctl;
     enum mixer_ctl_type type;
-    unsigned int num_ctl_values;
-    unsigned int i;
+    unsigned int num_ctl_values, num_ctl_vals;
+    unsigned int i, k;
+    int values[4];
+    char *substring;
 
     if (isdigit(control[0]))
         ctl = mixer_get_ctl(mixer, atoi(control));
@@ -194,33 +196,28 @@ static void tinymix_set_value(struct mixer *mixer, const char *control,
     }
 
     type = mixer_ctl_get_type(ctl);
-    num_ctl_values = mixer_ctl_get_num_values(ctl);
+    num_ctl_vals = mixer_ctl_get_num_values(ctl);
 
-    if (isdigit(values[0][0])) {
-        if (num_values == 1) {
-            /* Set all values the same */
-            int value = atoi(values[0]);
+    if (isdigit(string[0])) {
 
-            for (i = 0; i < num_ctl_values; i++) {
-                if (mixer_ctl_set_value(ctl, i, value)) {
-                    fprintf(stderr, "Error: invalid value\n");
-                    return;
-                }
-            }
-        } else {
-            /* Set multiple values */
-            if (num_values > num_ctl_values) {
-                fprintf(stderr,
-                        "Error: %d values given, but control only takes %d\n",
-                        num_values, num_ctl_values);
-                return;
-            }
-            for (i = 0; i < num_values; i++) {
-                if (mixer_ctl_set_value(ctl, i, atoi(values[i]))) {
-                    fprintf(stderr, "Error: invalid value for index %d\n", i);
-                    return;
-                }
-            }
+        num_values = 1;
+        for (i = 0; i < strlen(string); i++) {
+            if (string[i] == ',') num_values++;
+        }
+        substring = string;
+        k = strlen(string);
+        for (i = 0; i < k; i++) {
+            if (substring[i] == ',') substring[i] = '\0';
+        }
+        substring = string;
+        for (i = 0; i < num_values; i++) {
+            values[i] = atoi(substring);
+            substring += (strlen(substring) + 1);
+        }
+
+        if (mixer_ctl_set_multivalue(ctl, num_values, values)) {
+            fprintf(stderr, "Error: invalid values for %u\n", id);
+            return;
         }
     } else {
         if (type == MIXER_CTL_TYPE_ENUM) {
